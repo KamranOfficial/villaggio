@@ -1,0 +1,157 @@
+# Grand Villaggio Hotel — Reception Handover System
+
+A simple, spreadsheet-style web app that replaces the Excel reception
+handover sheet. No logins, no complicated permissions — reception staff
+open it, pick their name, and fill it in like the old sheet.
+
+- **Frontend:** plain HTML/CSS/JS (`public/`) — no build step
+- **Backend:** Cloudflare Worker (`worker/src/index.js`)
+- **Database:** Cloudflare D1 (`worker/schema.sql`)
+- **Hosting:** a single Cloudflare Worker serves both the static site and
+  the `/api/*` endpoints, so there's only one thing to deploy
+
+```
+villaggio-handover/
+├── public/              the app (served as static files)
+│   ├── index.html
+│   ├── styles.css
+│   └── app.js
+├── worker/
+│   ├── src/index.js     API (Worker)
+│   ├── schema.sql        D1 tables + seed settings
+│   └── wrangler.toml
+└── README.md
+```
+
+## 1. Prerequisites
+
+- A Cloudflare account
+- Node.js installed locally
+- Wrangler CLI: `npm install -g wrangler`
+- `wrangler login`
+
+## 2. Create the D1 database
+
+```bash
+cd worker
+wrangler d1 create villaggio-handover-db
+```
+
+This prints a `database_id`. Copy it into `worker/wrangler.toml`,
+replacing `REPLACE_WITH_YOUR_D1_DATABASE_ID`.
+
+## 3. Apply the schema
+
+```bash
+wrangler d1 execute villaggio-handover-db --file=./schema.sql --remote
+```
+
+This creates the six tables (`handovers`, `handover_items`,
+`cash_denominations`, `foreign_currency`, `activity_logs`, `settings`)
+and seeds `settings` with the six staff names, the AED 2,500 expected
+petty cash, and the standard AED denomination list.
+
+(Use `--local` instead of `--remote` first if you want to test with
+`wrangler dev` before touching the live database.)
+
+## 4. Deploy
+
+```bash
+wrangler deploy
+```
+
+Wrangler will print your live URL, e.g.
+`https://villaggio-handover.<your-subdomain>.workers.dev`. Open it —
+that's the whole app. The Worker serves `public/` for normal pages and
+handles `/api/*` itself, so there is nothing else to configure.
+
+To use a custom domain (e.g. `handover.grandvillaggio.com`), add a
+route in the Cloudflare dashboard under your Worker's **Triggers** tab,
+or add a `routes` entry to `wrangler.toml`.
+
+### Local development
+
+```bash
+wrangler dev
+```
+
+This runs the Worker (and serves the static files) at
+`http://localhost:8787`, backed by a local D1 instance.
+
+## 5. Using the app
+
+- **Reference Date / From / To** — at the top. Changing the date loads
+  that day's handover, or creates a fresh one if it doesn't exist yet.
+- **Handover Items** — add/remove rows freely, just like inserting rows
+  in Excel.
+- **Handover Notes** — free text for anything not tied to a specific room.
+- **Cash Denomination** — enter quantities only; totals are calculated
+  and locked (shown with a shaded background). Foreign currency rows
+  live in the same table, right below the AED denominations — add as
+  many as needed with **+ Add foreign currency**. Enter the currency
+  label and the hotel's own rate; the AED total calculates itself.
+- **Cash Calculation** — Credits, Give Backs, and Cash Posting are the
+  only editable numbers here. Everything else (Cash in Hand, Total,
+  Petty Cash, Difference) is calculated automatically using:
+
+  ```
+  Cash in Hand = sum of all denomination + foreign currency totals
+  Total         = Cash in Hand + Credits
+  Petty Cash    = Total − (Give Backs + Cash Posting)
+  Difference    = Petty Cash − Expected Petty Cash
+  ```
+
+  Difference shows **EXCESS**, **SHORT**, or **BALANCED** automatically.
+- **Everything autosaves** a moment after you stop typing — no Save
+  button to remember. The status indicator in the top bar shows
+  "Saving…" then "Saved ✓".
+- **Mark complete** — toggle in the header when a shift handover is
+  finished; this is recorded in the Activity Log along with who did it.
+- **History** — opens a small calendar. Days with a saved handover are
+  marked (gold = draft, green = completed); click any day to open it.
+  Past handovers are never overwritten — each date is its own record.
+- **Print Handover** button, or **Ctrl+P** — prints just the handover
+  sheet (no buttons, no navigation), formatted like the paper version.
+- **Settings** (top bar) — edit the staff list, the AED denominations,
+  and the Expected Petty Cash amount (default AED 2,500.00) without
+  touching any code.
+
+## 6. Offline behaviour
+
+If the connection drops mid-shift, the app keeps working: the current
+handover is cached in the browser (IndexedDB) and edits are queued
+locally. As soon as the connection returns, queued changes sync to D1
+automatically. The status indicator turns amber ("Offline — saved
+locally") so staff know a sync is pending.
+
+## 7. Data model
+
+| Table | Purpose |
+|---|---|
+| `handovers` | One row per date/shift: from/to staff, notes, credits, give backs, cash posting, status |
+| `handover_items` | The numbered room/note/status rows |
+| `cash_denominations` | AED denomination quantities for a handover |
+| `foreign_currency` | Foreign currency rows (label, rate, quantity) for a handover |
+| `activity_logs` | Created / Edited / Completed entries with staff name and timestamp |
+| `settings` | Staff names, denomination list, expected petty cash — editable from Settings |
+
+Each handover has its own UUID and its own set of rows in the four
+related tables, so historical handovers are never overwritten — a new
+date is simply a new record.
+
+## 8. Verified calculation example
+
+The formulas were checked against the example in the brief:
+
+| Field | Value |
+|---|---|
+| Cash in Hand | AED 1,301.00 |
+| Credits | AED 1,560.00 |
+| Total | AED 2,861.00 |
+| Give Backs | AED 0.00 |
+| Cash Posting | AED 0.00 |
+| Petty Cash | AED 2,861.00 |
+| Expected Petty Cash | AED 2,500.00 |
+| Difference | AED 361.00 **EXCESS** |
+
+This matches exactly.

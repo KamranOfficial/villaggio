@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Grand Villaggio Hotel — Reception Handover</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- ============ TOP BAR ============ -->
+<header class="topbar no-print">
+  <div class="brand">
+    <span class="brand-eyebrow">Grand Villaggio Hotel</span>
+    <h1 class="brand-title">Reception Handover</h1>
+  </div>
+  <div class="save-status" id="saveStatus" aria-live="polite">
+    <span class="dot" id="saveDot"></span>
+    <span id="saveText">Ready</span>
+  </div>
+  <div class="topbar-actions">
+    <button class="btn btn-ghost" id="historyBtn" type="button">History</button>
+    <button class="btn btn-ghost" id="settingsBtn" type="button">Settings</button>
+    <button class="btn btn-primary" id="printBtn" type="button">Print Handover</button>
+  </div>
+</header>
+
+<main class="sheet" id="printArea">
+
+  <!-- ============ PRINT-ONLY LETTERHEAD ============ -->
+  <div class="print-only letterhead">
+    <div class="letterhead-name">GRAND VILLAGGIO HOTEL</div>
+    <div class="letterhead-sub">RECEPTION HANDOVER</div>
+  </div>
+
+  <!-- ============ HEADER FIELDS ============ -->
+  <section class="card meta-card">
+    <div class="meta-field">
+      <label for="refDate">Reference Date</label>
+      <input type="date" id="refDate" />
+    </div>
+    <div class="meta-field">
+      <label for="fromStaff">From</label>
+      <select id="fromStaff"></select>
+    </div>
+    <div class="meta-field">
+      <label for="toStaff">To</label>
+      <select id="toStaff"></select>
+    </div>
+    <div class="meta-field meta-status">
+      <label>Status</label>
+      <div class="status-toggle">
+        <span class="status-pill" id="statusPill">Draft</span>
+        <label class="switch">
+          <input type="checkbox" id="completeToggle" />
+          <span>Mark complete</span>
+        </label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ HANDOVER ITEMS ============ -->
+  <section class="card">
+    <div class="card-head">
+      <h2>Handover Items</h2>
+      <button class="btn btn-ghost btn-sm no-print" id="addItemBtn" type="button">+ Add row</button>
+    </div>
+    <table class="grid-table" id="itemsTable">
+      <thead>
+        <tr>
+          <th class="col-no">No.</th>
+          <th class="col-room">Room</th>
+          <th class="col-note">Handover Note</th>
+          <th class="col-status">Status</th>
+          <th class="col-del no-print"></th>
+        </tr>
+      </thead>
+      <tbody id="itemsBody"></tbody>
+    </table>
+  </section>
+
+  <!-- ============ HANDOVER NOTES ============ -->
+  <section class="card">
+    <div class="card-head">
+      <h2>Handover Notes</h2>
+      <span class="hint">General shift notes not tied to a specific room</span>
+    </div>
+    <textarea id="generalNotes" rows="4" placeholder="e.g. Guest in 706 promised to pay next week. VIP arriving at 3 PM."></textarea>
+  </section>
+
+  <!-- ============ CASH DENOMINATION ============ -->
+  <section class="card">
+    <div class="card-head">
+      <h2>Cash Denomination</h2>
+    </div>
+    <table class="grid-table cash-table">
+      <thead>
+        <tr>
+          <th class="col-denom">Denomination</th>
+          <th class="col-qty">Qty</th>
+          <th class="col-total">Total</th>
+        </tr>
+      </thead>
+      <tbody id="denomBody"></tbody>
+      <tbody id="fxBody" class="fx-body"></tbody>
+    </table>
+    <button class="btn btn-ghost btn-sm no-print" id="addFxBtn" type="button">+ Add foreign currency</button>
+  </section>
+
+  <!-- ============ CASH CALCULATION ============ -->
+  <section class="card calc-card">
+    <div class="card-head">
+      <h2>Cash Calculation</h2>
+    </div>
+    <div class="calc-grid">
+      <div class="calc-row locked">
+        <span class="calc-label">Cash in Hand</span>
+        <span class="calc-value" id="calcCashInHand">AED 0.00</span>
+      </div>
+      <div class="calc-row editable">
+        <span class="calc-label">Credits</span>
+        <input class="calc-input" id="inputCredits" type="number" min="0" step="0.01" value="0" />
+      </div>
+      <div class="calc-row locked total">
+        <span class="calc-label">Total</span>
+        <span class="calc-value" id="calcTotal">AED 0.00</span>
+      </div>
+      <div class="calc-row editable">
+        <span class="calc-label">Give Backs</span>
+        <input class="calc-input" id="inputGiveBacks" type="number" min="0" step="0.01" value="0" />
+      </div>
+      <div class="calc-row editable">
+        <span class="calc-label">Cash Posting</span>
+        <input class="calc-input" id="inputCashPosting" type="number" min="0" step="0.01" value="0" />
+      </div>
+      <div class="calc-row locked">
+        <span class="calc-label">Petty Cash</span>
+        <span class="calc-value" id="calcPettyCash">AED 0.00</span>
+      </div>
+      <div class="calc-row locked">
+        <span class="calc-label">Expected Petty Cash</span>
+        <span class="calc-value" id="calcExpectedPetty">AED 2,500.00</span>
+      </div>
+      <div class="calc-row locked result">
+        <span class="calc-label">Difference</span>
+        <span class="calc-value" id="calcDifference">AED 0.00</span>
+      </div>
+    </div>
+    <div class="result-banner" id="resultBanner">AED 0.00 BALANCED</div>
+  </section>
+
+  <!-- ============ ACTIVITY LOG ============ -->
+  <section class="card no-print" id="activityCard">
+    <div class="card-head collapsible" id="activityToggle">
+      <h2>Activity Log</h2>
+      <span class="chevron" id="activityChevron">▾</span>
+    </div>
+    <ul class="activity-list" id="activityList"></ul>
+  </section>
+
+</main>
+
+<!-- ============ HISTORY MODAL ============ -->
+<div class="modal-overlay no-print" id="historyModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Handover History</h2>
+      <button class="btn-icon" id="closeHistory" type="button">✕</button>
+    </div>
+    <div class="calendar-nav">
+      <button class="btn btn-ghost btn-sm" id="calPrev" type="button">‹</button>
+      <span id="calMonthLabel">August 2026</span>
+      <button class="btn btn-ghost btn-sm" id="calNext" type="button">›</button>
+    </div>
+    <div class="calendar-weekdays">
+      <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+    </div>
+    <div class="calendar-grid" id="calendarGrid"></div>
+    <div class="calendar-legend">
+      <span><i class="dot dot-completed"></i> Completed</span>
+      <span><i class="dot dot-draft"></i> Draft</span>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SETTINGS MODAL ============ -->
+<div class="modal-overlay no-print" id="settingsModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Settings</h2>
+      <button class="btn-icon" id="closeSettings" type="button">✕</button>
+    </div>
+
+    <div class="settings-section">
+      <h3>Reception Team</h3>
+      <ul class="editable-list" id="staffList"></ul>
+      <div class="add-row">
+        <input type="text" id="newStaffName" placeholder="Add staff name" />
+        <button class="btn btn-ghost btn-sm" id="addStaffBtn" type="button">Add</button>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>Expected Petty Cash</h3>
+      <input type="number" id="settingsExpectedPetty" min="0" step="0.01" />
+    </div>
+
+    <div class="settings-section">
+      <h3>Denominations</h3>
+      <ul class="editable-list" id="denomList"></ul>
+      <div class="add-row">
+        <input type="number" id="newDenomValue" step="0.01" placeholder="Add denomination" />
+        <button class="btn btn-ghost btn-sm" id="addDenomBtn" type="button">Add</button>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="saveSettingsBtn" type="button">Save Settings</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

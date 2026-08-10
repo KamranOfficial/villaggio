@@ -1,0 +1,16 @@
+name = "villaggio-handover"
+main = "src/index.js"
+compatibility_date = "2026-01-01"
+
+# Serves the frontend (public/) directly from this Worker.
+# Cloudflare will serve matching static files automatically and only
+# fall through to the Worker code for routes it doesn't recognize
+# (e.g. /api/*), so no separate Cloudflare Pages project is needed.
+[assets]
+directory = "../public"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "villaggio-handover-db"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
