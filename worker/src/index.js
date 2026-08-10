@@ -91,12 +91,38 @@ async function fetchFullHandover(db, id) {
   };
 }
 
+async function findPreviousHandover(db, beforeDate) {
+  const row = await db
+    .prepare(
+      "SELECT id FROM handovers WHERE reference_date < ? ORDER BY reference_date DESC, created_at DESC LIMIT 1"
+    )
+    .bind(beforeDate)
+    .first();
+  if (!row) return null;
+  return fetchFullHandover(db, row.id);
+}
+
 async function createHandover(db, body) {
-  const settings = await getSettings(db);
   const id = uid();
   const ts = now();
   const referenceDate = body.reference_date;
   if (!referenceDate) throw new Error("reference_date is required");
+
+  // Guard: never silently duplicate a date. If a handover already exists
+  // for this exact date, hand back the existing record untouched instead
+  // of creating a second one.
+  const already = await db
+    .prepare("SELECT id FROM handovers WHERE reference_date = ? ORDER BY created_at DESC LIMIT 1")
+    .bind(referenceDate)
+    .first();
+  if (already) return fetchFullHandover(db, already.id);
+
+  const source = body.source === "previous" ? "previous" : "blank";
+  let sourceHandover = null;
+  if (source === "previous") {
+    // Read-only lookup — the earlier record is never written to.
+    sourceHandover = await findPreviousHandover(db, referenceDate);
+  }
 
   await db
     .prepare(
@@ -106,20 +132,59 @@ async function createHandover(db, body) {
     .bind(id, referenceDate, body.from_staff || "", body.to_staff || "", ts, ts)
     .run();
 
-  // Seed denomination rows from current settings so the sheet is ready to fill in.
-  const denoms = settings.denominations || [1000, 500, 200, 100, 50, 20, 10, 5, 1, 0.5, 0.25];
-  const stmts = denoms.map((d) =>
-    db
-      .prepare("INSERT INTO cash_denominations (id, handover_id, denomination, qty) VALUES (?, ?, ?, 0)")
-      .bind(uid(), id, d)
-  );
+  const stmts = [];
+
+  if (sourceHandover) {
+    // Carry forward the physical cash count and any still-open room
+    // items from the previous shift. Every row gets a brand-new id and
+    // is linked only to the new handover_id — nothing here references
+    // or mutates the source record.
+    (sourceHandover.items || [])
+      .filter((it) => (it.status || "Pending") !== "Done")
+      .forEach((item, idx) => {
+        stmts.push(
+          db
+            .prepare(
+              "INSERT INTO handover_items (id, handover_id, position, room, note, status) VALUES (?, ?, ?, ?, ?, ?)"
+            )
+            .bind(uid(), id, idx + 1, item.room || "", item.note || "", item.status || "Pending")
+        );
+      });
+    (sourceHandover.denominations || []).forEach((d) => {
+      stmts.push(
+        db
+          .prepare("INSERT INTO cash_denominations (id, handover_id, denomination, qty) VALUES (?, ?, ?, ?)")
+          .bind(uid(), id, d.denomination, d.qty || 0)
+      );
+    });
+    (sourceHandover.foreign_currency || []).forEach((f) => {
+      stmts.push(
+        db
+          .prepare("INSERT INTO foreign_currency (id, handover_id, label, rate, qty) VALUES (?, ?, ?, ?, ?)")
+          .bind(uid(), id, f.label || "", f.rate || 0, f.qty || 0)
+      );
+    });
+  } else {
+    const settings = await getSettings(db);
+    const denoms = settings.denominations || [1000, 500, 200, 100, 50, 20, 10, 5, 1, 0.5, 0.25];
+    denoms.forEach((d) => {
+      stmts.push(
+        db
+          .prepare("INSERT INTO cash_denominations (id, handover_id, denomination, qty) VALUES (?, ?, ?, 0)")
+          .bind(uid(), id, d)
+      );
+    });
+  }
+
+  const activityDetail =
+    sourceHandover ? `Created — copied from ${sourceHandover.reference_date}` : "Created — blank";
   stmts.push(
     db
-      .prepare("INSERT INTO activity_logs (id, handover_id, action, staff_name, created_at) VALUES (?, ?, 'Created', ?, ?)")
-      .bind(uid(), id, body.staff_name || body.from_staff || "", ts)
+      .prepare("INSERT INTO activity_logs (id, handover_id, action, staff_name, created_at) VALUES (?, ?, ?, ?, ?)")
+      .bind(uid(), id, activityDetail, body.staff_name || body.from_staff || "", ts)
   );
-  await db.batch(stmts);
 
+  if (stmts.length) await db.batch(stmts);
   return fetchFullHandover(db, id);
 }
 
@@ -186,8 +251,8 @@ async function saveHandover(db, id, body) {
   const action = !wasCompleted && nowCompleted ? "Completed" : "Edited";
   stmts.push(
     db
-      .prepare("INSERT INTO activity_logs (id, handover_id, action, staff_name  , created_at) VALUES (?, ?, ?, ?, ?)")
-      .bind(uid(), id, action, body.from_staff   || "", ts)
+      .prepare("INSERT INTO activity_logs (id, handover_id, action, staff_name, created_at) VALUES (?, ?, ?, ?, ?)")
+      .bind(uid(), id, action, body.staff_name || body.to_staff || body.from_staff || "", ts)
   );
 
   await db.batch(stmts);
@@ -240,6 +305,14 @@ export default {
           .first();
         if (!row) return json(null);
         return json(await fetchFullHandover(db, row.id));
+      }
+
+      // /api/handover/previous?before=YYYY-MM-DD (read-only lookup, never mutates)
+      if (path === "/api/handover/previous" && request.method === "GET") {
+        const before = url.searchParams.get("before");
+        if (!before) return json({ error: "before query param required" }, 400);
+        const prev = await findPreviousHandover(db, before);
+        return json(prev);
       }
 
       if (path === "/api/handover" && request.method === "POST") {

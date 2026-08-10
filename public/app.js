@@ -142,45 +142,105 @@ async function loadDate(dateStr) {
   document.getElementById("refDate").value = dateStr;
 
   let handover = null;
+  let networkOk = true;
   try {
     handover = await api("/handover?date=" + dateStr);
     if (handover) await OfflineStore.cacheHandover(dateStr, handover);
   } catch (e) {
+    networkOk = false;
     handover = await OfflineStore.getCached(dateStr);
     if (handover) setSaveStatus("offline", "Offline — showing cached copy");
   }
 
-  if (!handover) {
-    // No handover yet for this date — try to create one; fall back to a
-    // local draft if we're offline.
-    try {
-      handover = await api("/handover", {
-        method: "POST",
-        body: JSON.stringify({
-          reference_date: dateStr,
-          from_staff: "",
-          to_staff: "",
-        }),
-      });
-      await OfflineStore.cacheHandover(dateStr, handover);
-    } catch (e) {
-      handover = {
-        id: "local-" + dateStr,
-        reference_date: dateStr,
-        from_staff: "",
-        to_staff: "",
-        general_notes: "",
-        credits: 0,
-        give_backs: 0,
-        cash_posting: 0,
-        status: "draft",
-        items: [],
-        denominations: (state.settings.denominations || []).map((d) => ({ denomination: d, qty: 0 })),
-        foreign_currency: [],
-        activity: [],
-      };
-      setSaveStatus("offline", "Offline — new draft will sync later");
+  if (handover) {
+    // An existing saved record for this exact date — open it exactly as
+    // saved. Never copy another date into it, never reset it.
+    state.handover = handover;
+    state.loading = false;
+    renderAll();
+    if (saveStatusEl.className.indexOf("offline") === -1) setSaveStatus("saved", "Saved ✓");
+    return;
+  }
+
+  if (!networkOk) {
+    // Offline with nothing cached for this date: default to a local
+    // blank draft rather than guessing — it will sync as a genuinely
+    // new, independent record once the connection returns.
+    state.handover = blankLocalDraft(dateStr);
+    state.loading = false;
+    renderAll();
+    setSaveStatus("offline", "Offline — new draft will sync later");
+    return;
+  }
+
+  // Nothing saved yet for this date — ask how the new record should start.
+  await promptNewDate(dateStr);
+}
+
+function blankLocalDraft(dateStr) {
+  return {
+    id: "local-" + dateStr,
+    reference_date: dateStr,
+    from_staff: "",
+    to_staff: "",
+    general_notes: "",
+    credits: 0,
+    give_backs: 0,
+    cash_posting: 0,
+    status: "draft",
+    items: [],
+    denominations: (state.settings.denominations || []).map((d) => ({ denomination: d, qty: 0 })),
+    foreign_currency: [],
+    activity: [],
+  };
+}
+
+async function promptNewDate(dateStr) {
+  const newDateModal = document.getElementById("newDateModal");
+  const copyEl = document.getElementById("newDateCopy");
+  const prevBtn = document.getElementById("createFromPrevBtn");
+  const blankBtn = document.getElementById("createBlankBtn");
+
+  let previous = null;
+  try {
+    previous = await api("/handover/previous?before=" + dateStr);
+  } catch (e) { /* offline or lookup failed — treat as no previous available */ }
+
+  if (previous) {
+    copyEl.textContent =
+      `No saved handover exists yet for ${dateStr}. You can start from the previous saved handover ` +
+      `(${previous.reference_date}) — its cash count and any unresolved room items will be copied in; ` +
+      `that earlier record itself will not be changed. Or start completely blank.`;
+    prevBtn.style.display = "";
+  } else {
+    copyEl.textContent = `No saved handover exists yet for ${dateStr}, and there's no earlier handover to copy from.`;
+    prevBtn.style.display = "none";
+  }
+
+  newDateModal.classList.add("open");
+
+  const choice = await new Promise((resolve) => {
+    const onPrev = () => { cleanup(); resolve("previous"); };
+    const onBlank = () => { cleanup(); resolve("blank"); };
+    function cleanup() {
+      prevBtn.removeEventListener("click", onPrev);
+      blankBtn.removeEventListener("click", onBlank);
+      newDateModal.classList.remove("open");
     }
+    prevBtn.addEventListener("click", onPrev);
+    blankBtn.addEventListener("click", onBlank);
+  });
+
+  let handover;
+  try {
+    handover = await api("/handover", {
+      method: "POST",
+      body: JSON.stringify({ reference_date: dateStr, source: choice, from_staff: "", to_staff: "" }),
+    });
+    await OfflineStore.cacheHandover(dateStr, handover);
+  } catch (e) {
+    handover = blankLocalDraft(dateStr);
+    setSaveStatus("offline", "Offline — new draft will sync later");
   }
 
   state.handover = handover;
@@ -216,6 +276,14 @@ function renderMeta() {
   buildOptions(toSel, h.to_staff);
 
   document.getElementById("generalNotes").value = h.general_notes || "";
+
+  // These three are the only editable numbers in the Cash Calculation
+  // panel. They MUST be populated from the saved record every time a
+  // date is opened — leaving them at their default "0" would cause the
+  // next autosave to silently overwrite real saved figures.
+  document.getElementById("inputCredits").value = h.credits || 0;
+  document.getElementById("inputGiveBacks").value = h.give_backs || 0;
+  document.getElementById("inputCashPosting").value = h.cash_posting || 0;
 
   const isCompleted = h.status === "completed";
   document.getElementById("completeToggle").checked = isCompleted;

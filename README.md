@@ -81,7 +81,17 @@ This runs the Worker (and serves the static files) at
 ## 5. Using the app
 
 - **Reference Date / From / To** — at the top. Changing the date loads
-  that day's handover, or creates a fresh one if it doesn't exist yet.
+  that day's handover. If nothing is saved for that date yet, the app
+  asks **"Create from previous day"** or **"Start blank"** — it never
+  creates or fills in a new date silently.
+  - **Create from previous day** copies the previous day's cash count
+    and any unresolved room items into a brand-new record (new IDs,
+    own rows in every table). The source date is read-only during this
+    — it is never edited or re-saved.
+  - **Start blank** creates an empty record for that date only.
+  - Opening a date that already has a saved handover always opens that
+    exact record. It is never reset, recalculated, or overwritten with
+    another date's data.
 - **Handover Items** — add/remove rows freely, just like inserting rows
   in Excel.
 - **Handover Notes** — free text for anything not tied to a specific room.
@@ -138,6 +148,18 @@ locally") so staff know a sync is pending.
 Each handover has its own UUID and its own set of rows in the four
 related tables, so historical handovers are never overwritten — a new
 date is simply a new record.
+
+**Data isolation guarantee:** every save (`PUT /api/handover/:id`)
+only ever touches rows scoped to that one `handover_id` — it deletes
+and re-inserts only that record's own items, denominations, and
+foreign currency rows, and updates only that one row in `handovers`.
+No endpoint ever writes to more than one date's records in a single
+request. Copying from a previous day (`POST /api/handover` with
+`source: "previous"`) only *reads* the earlier record and inserts new
+rows with new IDs under the new date — the source record is never
+updated. If a handover already exists for a date, `POST /api/handover`
+returns that existing record unchanged rather than creating a
+duplicate.
 
 ## 8. Verified calculation example
 
