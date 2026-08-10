@@ -13,4 +13,4 @@ binding = "ASSETS"
 [[d1_databases]]
 binding = "DB"
 database_name = "villaggio-handover-db"
-database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_id = "9ab60c51-bb3d-41e1-ada7-969287844a88"
