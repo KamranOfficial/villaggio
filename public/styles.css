@@ -543,6 +543,31 @@ textarea#generalNotes:focus { outline: none; border-color: var(--gold); }
     page-break-inside: avoid;
   }
 
+  /* ---- Cash Denomination + Cash Calculation printed side by side ----
+     Everything in .sheet defaults to a full-width row; the two cash
+     cards are the only ones pulled into a two-column pair, so the
+     printed sheet gains an extra "ledger" row instead of two long
+     stacked sections. Nothing else in the layout is affected. */
+  .sheet {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 14px;
+  }
+  .sheet > * { grid-column: 1 / -1; }
+  .sheet > .cash-card,
+  .sheet > .calc-card {
+    grid-column: auto;
+    margin-bottom: 4px;
+  }
+  .sheet > .cash-card {
+    border-right: 1px solid #ccc;
+    padding-right: 10px;
+  }
+  .sheet > .calc-card {
+    padding-left: 10px;
+    border-bottom: 1px solid #ccc;
+  }
+
   .card-head { margin-bottom: 4px; }
   .card-head h2 { font-size: 10.5px; letter-spacing: 0.05em; }
   .card-head .hint { font-size: 8.5px; }
@@ -598,9 +623,10 @@ textarea#generalNotes:focus { outline: none; border-color: var(--gold); }
   .fx-row .fx-rate { padding: 1px 3px; }
   .fx-body tr:first-child td { border-top: 1px dashed #bbb; }
 
-  /* ---- Cash Calculation: compact 2-column grid stays 2-column ---- */
+  /* ---- Cash Calculation: single column now that the card itself
+     sits in a half-width print column next to Cash Denomination ---- */
   .calc-card { padding-top: 4px; }
-  .calc-grid { gap: 3px 16px; }
+  .calc-card .calc-grid { grid-template-columns: 1fr; gap: 3px; }
   .calc-row {
     padding: 3px 8px;
     break-inside: avoid;
