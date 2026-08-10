@@ -186,8 +186,8 @@ async function saveHandover(db, id, body) {
   const action = !wasCompleted && nowCompleted ? "Completed" : "Edited";
   stmts.push(
     db
-      .prepare("INSERT INTO activity_logs (id, handover_id, action, staff_name, created_at) VALUES (?, ?, ?, ?, ?)")
-      .bind(uid(), id, action, body.staff_name || "", ts)
+      .prepare("INSERT INTO activity_logs (id, handover_id, action, staff_name  , created_at) VALUES (?, ?, ?, ?, ?)")
+      .bind(uid(), id, action, body.from_staff   || "", ts)
   );
 
   await db.batch(stmts);
