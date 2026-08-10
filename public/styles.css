@@ -117,42 +117,361 @@ input, select, textarea { font-family: inherit; font-size: 14px; color: var(--in
   padding: 4px 8px;
 }
 
+```css
 /* ---------- Sheet layout ---------- */
 
 .sheet {
   max-width: 980px;
-  margin: 28px auto 80px;
-  padding: 0 20px;
+  margin: 18px auto 40px;
+  padding: 0 14px;
 }
 
 .card {
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 18px 20px;
-  margin-bottom: 18px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
 }
 
 .card-head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .card-head h2 {
-  font-size: 14px;
+  font-size: 13px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--navy);
   margin: 0;
 }
 
-.card-head .hint { font-size: 12px; color: var(--ink-soft); }
+.card-head .hint {
+  font-size: 11px;
+  color: var(--ink-soft);
+}
 
-.card-head.collapsible { cursor: pointer; }
-.chevron { color: var(--ink-soft); transition: transform 0.15s ease; }
-.chevron.open { transform: rotate(180deg); }
+.card-head.collapsible {
+  cursor: pointer;
+}
+
+.chevron {
+  color: var(--ink-soft);
+  transition: transform 0.15s ease;
+}
+
+.chevron.open {
+  transform: rotate(180deg);
+}
+
+
+/* ---------- Compact cash denomination area ---------- */
+
+.cash-table {
+  font-size: 12px;
+}
+
+.cash-table th {
+  padding: 5px 6px;
+  font-size: 10px;
+}
+
+.cash-table td {
+  padding: 2px 6px;
+}
+
+.cash-table input[type="number"] {
+  padding: 4px 6px;
+  font-size: 12px;
+}
+
+.cash-table .locked-cell {
+  padding: 4px 6px;
+}
+
+
+/* ---------- A4 PRINT: FIT EVERYTHING ON ONE PAGE ---------- */
+
+@page {
+  size: A4 portrait;
+  margin: 8mm;
+}
+
+@media print {
+
+  html,
+  body {
+    width: 210mm;
+    height: 297mm;
+    margin: 0;
+    padding: 0;
+    background: #fff;
+    font-size: 9px;
+  }
+
+  body {
+    color: #000;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block;
+  }
+
+  .topbar {
+    display: none !important;
+  }
+
+  .sheet {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .card {
+    border: 1px solid #bbb;
+    border-radius: 3px;
+    padding: 5px 7px;
+    margin: 0 0 5px 0;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .card-head {
+    margin-bottom: 3px;
+  }
+
+  .card-head h2 {
+    font-size: 9px;
+    letter-spacing: 0.06em;
+  }
+
+  .card-head .hint {
+    font-size: 8px;
+  }
+
+  /* Meta section */
+
+  .meta-card {
+    gap: 6px;
+  }
+
+  .meta-field label {
+    font-size: 8px;
+    margin-bottom: 2px;
+  }
+
+  .meta-field input,
+  .meta-field select {
+    padding: 3px 4px;
+    font-size: 9px;
+    height: 22px;
+  }
+
+  /* Handover items */
+
+  .grid-table {
+    font-size: 9px;
+  }
+
+  .grid-table th {
+    font-size: 8px;
+    padding: 3px 4px;
+  }
+
+  .grid-table td {
+    padding: 1px 4px;
+  }
+
+  .grid-table input[type="text"],
+  .grid-table textarea,
+  .grid-table select {
+    padding: 2px 3px;
+    font-size: 9px;
+    min-height: 18px;
+  }
+
+  .col-no {
+    width: 25px;
+  }
+
+  .col-room {
+    width: 55px;
+  }
+
+  .col-status {
+    width: 80px;
+  }
+
+  .col-del {
+    display: none;
+  }
+
+  /* General notes */
+
+  textarea#generalNotes {
+    padding: 4px 5px;
+    font-size: 9px;
+    min-height: 28px;
+  }
+
+  /* CASH DENOMINATIONS */
+
+  .cash-table {
+    font-size: 8px;
+  }
+
+  .cash-table th {
+    font-size: 7px;
+    padding: 2px 4px;
+  }
+
+  .cash-table td {
+    padding: 1px 4px;
+    height: 18px;
+  }
+
+  .cash-table input[type="number"] {
+    padding: 2px 4px;
+    font-size: 8px;
+    height: 17px;
+  }
+
+  .cash-table .locked-cell {
+    padding: 2px 4px;
+    font-size: 8px;
+  }
+
+  .cash-table .col-denom {
+    width: 40%;
+  }
+
+  .cash-table .col-qty {
+    width: 25%;
+  }
+
+  .cash-table .col-total {
+    width: 35%;
+  }
+
+  /* Foreign currency */
+
+  .fx-row .fx-label input,
+  .fx-row .fx-rate {
+    padding: 2px 4px;
+    font-size: 8px;
+    height: 17px;
+  }
+
+  /* Calculation panel */
+
+  .calc-grid {
+    gap: 3px 8px;
+  }
+
+  .calc-row {
+    padding: 3px 6px;
+    min-height: 18px;
+  }
+
+  .calc-label {
+    font-size: 8px;
+  }
+
+  .calc-row .calc-value {
+    font-size: 8px;
+  }
+
+  .calc-input {
+    width: 70px;
+    padding: 2px 4px;
+    font-size: 8px;
+    height: 17px;
+  }
+
+  .result-banner {
+    margin-top: 4px;
+    padding: 5px;
+    font-size: 10px;
+  }
+
+  /* Activity log */
+
+  .activity-list li {
+    font-size: 8px;
+    padding: 3px 0;
+  }
+
+  /* Remove unnecessary screen styling */
+
+  .locked-cell {
+    background: transparent;
+    border: none;
+  }
+
+  .calc-row.locked,
+  .calc-row.editable {
+    background: transparent;
+    border: none;
+  }
+
+  .status-toggle .switch {
+    display: none;
+  }
+
+  .result-banner {
+    border: 1px solid #999;
+  }
+
+  /* Inputs become plain printed text */
+
+  .grid-table input,
+  .grid-table select,
+  .grid-table textarea,
+  .cash-table input,
+  .fx-row input,
+  .calc-input,
+  #generalNotes,
+  .meta-field input,
+  .meta-field select {
+    border: none !important;
+    background: transparent !important;
+    color: #000 !important;
+    outline: none !important;
+  }
+
+  /* Hide UI-only controls */
+
+  .delete-row-btn,
+  .btn,
+  .topbar-actions,
+  .modal-overlay,
+  .calendar,
+  button {
+    display: none !important;
+  }
+
+  /* Prevent tables/cards from splitting */
+
+  table,
+  .calc-grid,
+  .activity-list {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  a[href]::after {
+    content: none;
+  }
+}
+```
 
 /* ---------- Meta fields ---------- */
 
@@ -268,95 +587,233 @@ textarea#generalNotes:focus { outline: none; border-color: var(--gold); }
 
 /* ---------- Cash table ---------- */
 
-.cash-table .col-denom { width: 45%; font-variant-numeric: tabular-nums; }
-.cash-table .col-qty { width: 25%; }
-.cash-table .col-total { width: 30%; }
+```css
+/* ---------- Compact Cash Table ---------- */
+
+.cash-table .col-denom {
+  width: 40%;
+  font-variant-numeric: tabular-nums;
+}
+
+.cash-table .col-qty {
+  width: 25%;
+}
+
+.cash-table .col-total {
+  width: 35%;
+}
 
 .cash-table input[type="number"] {
   width: 100%;
   border: 1px solid var(--line);
-  border-radius: 4px;
-  padding: 7px 8px;
+  border-radius: 3px;
+  padding: 4px 6px;
   font-family: var(--mono);
+  font-size: 11px;
   text-align: right;
+  height: 26px;
 }
-.cash-table input[type="number"]:focus { outline: none; border-color: var(--gold); background: #FFFDF7; }
+
+.cash-table input[type="number"]:focus {
+  outline: none;
+  border-color: var(--gold);
+  background: #FFFDF7;
+}
 
 .locked-cell {
   font-family: var(--mono);
+  font-size: 11px;
   text-align: right;
   color: var(--locked-ink);
   background: var(--locked-bg);
-  padding: 7px 10px;
-  border-radius: 4px;
+  padding: 4px 6px;
+  border-radius: 3px;
   display: block;
 }
 
 .fx-row .fx-label input {
   border: 1px solid var(--line);
-  border-radius: 4px;
-  padding: 7px 8px;
+  border-radius: 3px;
+  padding: 4px 6px;
   width: 60%;
   margin-right: 4px;
+  font-size: 11px;
 }
+
 .fx-row .fx-rate {
   border: 1px solid var(--line);
-  border-radius: 4px;
-  padding: 7px 8px;
+  border-radius: 3px;
+  padding: 4px 6px;
   width: 34%;
   font-family: var(--mono);
+  font-size: 11px;
   text-align: right;
 }
-.fx-body tr:first-child td { border-top: 2px dashed var(--line); }
 
-/* ---------- Calculation panel ---------- */
+.fx-body tr:first-child td {
+  border-top: 1px dashed var(--line);
+}
+
+
+/* ---------- Compact Calculation ---------- */
 
 .calc-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px 24px;
+  gap: 4px 10px;
 }
 
 .calc-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 9px 12px;
-  border-radius: var(--radius);
+  padding: 5px 7px;
+  border-radius: 3px;
+  min-height: 26px;
 }
-.calc-row.locked { background: var(--locked-bg); }
-.calc-row.locked .calc-value { color: var(--locked-ink); font-family: var(--mono); font-weight: 600; }
-.calc-row.editable { background: #FFFDF7; border: 1px solid var(--gold-light); }
-.calc-row.total .calc-value { color: var(--navy); }
-.calc-row.result { grid-column: 1 / -1; }
 
-.calc-label { font-size: 13px; color: var(--ink-soft); font-weight: 600; }
+.calc-row.locked {
+  background: var(--locked-bg);
+}
+
+.calc-row.locked .calc-value {
+  color: var(--locked-ink);
+  font-family: var(--mono);
+  font-weight: 600;
+}
+
+.calc-row.editable {
+  background: #FFFDF7;
+  border: 1px solid var(--gold-light);
+}
+
+.calc-row.total .calc-value {
+  color: var(--navy);
+}
+
+.calc-row.result {
+  grid-column: 1 / -1;
+}
+
+.calc-label {
+  font-size: 11px;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+
+.calc-value {
+  font-size: 11px;
+}
 
 .calc-input {
-  width: 130px;
+  width: 95px;
   text-align: right;
   border: 1px solid var(--line);
-  border-radius: 4px;
-  padding: 6px 8px;
+  border-radius: 3px;
+  padding: 4px 6px;
   font-family: var(--mono);
+  font-size: 11px;
   background: #fff;
+  height: 24px;
 }
-.calc-input:focus { outline: none; border-color: var(--gold); }
+
+.calc-input:focus {
+  outline: none;
+  border-color: var(--gold);
+}
 
 .result-banner {
-  margin-top: 14px;
+  margin-top: 5px;
   text-align: center;
-  font-size: 16px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.02em;
-  padding: 12px;
-  border-radius: var(--radius);
+  padding: 6px;
+  border-radius: 3px;
   background: var(--locked-bg);
   color: var(--locked-ink);
 }
-.result-banner.excess { background: var(--success-bg); color: var(--success); }
-.result-banner.short { background: var(--danger-bg); color: var(--danger); }
-.result-banner.balanced { background: var(--balanced-bg); color: var(--balanced); }
+
+.result-banner.excess {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.result-banner.short {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.result-banner.balanced {
+  background: var(--balanced-bg);
+  color: var(--balanced);
+}
+
+
+/* ---------- Very Compact A4 Print ---------- */
+
+@media print {
+
+  .cash-table {
+    font-size: 7px;
+  }
+
+  .cash-table th {
+    padding: 1px 3px;
+    font-size: 6.5px;
+  }
+
+  .cash-table td {
+    padding: 0 3px;
+    height: 14px;
+  }
+
+  .cash-table input[type="number"] {
+    padding: 1px 3px;
+    height: 14px;
+    font-size: 7px;
+  }
+
+  .locked-cell {
+    padding: 1px 3px;
+    font-size: 7px;
+  }
+
+  .fx-row .fx-label input,
+  .fx-row .fx-rate {
+    padding: 1px 3px;
+    height: 14px;
+    font-size: 7px;
+  }
+
+  .calc-grid {
+    gap: 2px 6px;
+  }
+
+  .calc-row {
+    padding: 2px 5px;
+    min-height: 14px;
+  }
+
+  .calc-label,
+  .calc-value {
+    font-size: 7px;
+  }
+
+  .calc-input {
+    width: 65px;
+    height: 14px;
+    padding: 1px 3px;
+    font-size: 7px;
+  }
+
+  .result-banner {
+    margin-top: 3px;
+    padding: 3px;
+    font-size: 8px;
+  }
+}
+```
 
 /* ---------- Activity log ---------- */
 
