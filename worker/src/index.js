@@ -252,7 +252,7 @@ async function saveHandover(db, id, body) {
   stmts.push(
     db
       .prepare("INSERT INTO activity_logs (id, handover_id, action, staff_name, created_at) VALUES (?, ?, ?, ?, ?)")
-      .bind(uid(), id, action, body.staff_name || body.from_staff || body.to_staff || "", ts)
+      .bind(uid(), id, action, body.from_staff || body.from_staff || body.to_staff || "", ts)
   );
 
   await db.batch(stmts);
