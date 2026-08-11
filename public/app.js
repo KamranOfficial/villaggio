@@ -158,7 +158,7 @@ async function loadDate(dateStr) {
     state.handover = handover;
     state.loading = false;
     renderAll();
-    if (saveStatusEl.className.indexOf("offline") === -1) setSaveStatus("saved", "AutoSaved ✓");
+    if (saveStatusEl.className.indexOf("offline") === -1) setSaveStatus("saved", "AutoAutoSaved ✓");
     return;
   }
 
@@ -246,7 +246,7 @@ async function promptNewDate(dateStr) {
   state.handover = handover;
   state.loading = false;
   renderAll();
-  if (saveStatusEl.className.indexOf("offline") === -1) setSaveStatus("saved", "Saved ✓");
+  if (saveStatusEl.className.indexOf("offline") === -1) setSaveStatus("saved", "AutoSaved ✓");
 }
 
 // ---------------------------------------------------------------------
@@ -534,7 +534,7 @@ async function doSave() {
     const saved = await api("/handover/" + h.id, { method: "PUT", body: JSON.stringify(payload) });
     state.handover.activity = saved.activity;
     renderActivity();
-    setSaveStatus("saved", "Saved ✓");
+    setSaveStatus("saved", "AutoSaved ✓");
   } catch (e) {
     setSaveStatus("offline", "Offline — saved locally, will sync");
     await OfflineStore.queueSave(h.id, payload, h.reference_date);
@@ -568,7 +568,7 @@ async function processQueue() {
       const fresh = await api("/handover/" + state.handover.id);
       state.handover = fresh;
       renderAll();
-      setSaveStatus("saved", "Saved ✓");
+      setSaveStatus("saved", "AutoSaved ✓");
     } catch (e) { /* ignore */ }
   }
 }
