@@ -506,6 +506,29 @@ textarea#generalNotes:focus { outline: none; border-color: var(--gold); }
 
 .print-only { display: none; }
 
+/* ---------- Footer ---------- */
+
+.app-footer {
+  max-width: 980px;
+  margin: 0 auto 28px;
+  padding: 16px 20px 0;
+  border-top: 1px solid var(--line);
+  text-align: center;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.app-footer p { margin: 0; }
+
+.app-footer a {
+  color: var(--gold);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.app-footer a:hover { text-decoration: underline; }
+
 /* ---------- Responsive ---------- */
 
 @media (max-width: 720px) {
