@@ -47,15 +47,23 @@ CREATE TABLE IF NOT EXISTS foreign_currency (
 
 CREATE INDEX IF NOT EXISTS idx_fx_handover ON foreign_currency(handover_id);
 
+-- Every meaningful saved change (never a keystroke, only a settled
+-- autosave) writes one row here: what changed, and — where a value makes
+-- sense to show — the previous and new value. Read-only from the app;
+-- only reachable via Settings → Activity Logs.
 CREATE TABLE IF NOT EXISTS activity_logs (
   id TEXT PRIMARY KEY,
   handover_id TEXT NOT NULL REFERENCES handovers(id) ON DELETE CASCADE,
-  action TEXT NOT NULL,                -- Created | Edited | Completed
+  handover_date TEXT NOT NULL,         -- the handover's reference_date, denormalized for fast global listing
   staff_name TEXT DEFAULT '',
+  action TEXT NOT NULL,                -- e.g. "Credits changed", "Room 706 added", "Handover created"
+  previous_value TEXT,                 -- nullable — not every action has a before/after value worth showing
+  new_value TEXT,
   created_at TEXT NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_activity_handover ON activity_logs(handover_id);
+CREATE INDEX IF NOT EXISTS idx_activity_created ON activity_logs(created_at);
 
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,

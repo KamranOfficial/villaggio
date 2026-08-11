@@ -152,15 +152,8 @@
     <div class="result-banner" id="resultBanner">AED 0.00 BALANCED</div>
   </section>
 
-  <!-- ============ ACTIVITY LOG 
-  // <section class="card no-print" id="activityCard">
-    <div class="card-head collapsible" id="activityToggle">
-      <h2>Activity Log</h2>
-      <span class="chevron" id="activityChevron">▾</span>
-    </div>
-    <ul class="activity-list" id="activityList"></ul>
-  // </section>
-============ -->
+  <!-- The Activity Log is intentionally NOT shown on the main handover
+       screen. It lives only under Settings → Activity Logs. -->
 </main>
 
 <!-- ============ FOOTER ============ -->
@@ -240,8 +233,30 @@
       </div>
     </div>
 
+    <div class="settings-section">
+      <h3>History</h3>
+      <button class="btn btn-ghost" id="openActivityLogsBtn" type="button">Activity Logs</button>
+    </div>
+
     <div class="modal-actions">
       <button class="btn btn-primary" id="saveSettingsBtn" type="button">Save Settings</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ACTIVITY LOGS MODAL ============ -->
+<!-- Read-only. Only reachable via Settings → Activity Logs. Loads the
+     latest 10 entries, and "Show Older Logs" fetches the next 10 each
+     click — never all logs at once. -->
+<div class="modal-overlay no-print" id="activityLogsModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Activity Logs</h2>
+      <button class="btn-icon" id="closeActivityLogs" type="button">✕</button>
+    </div>
+    <ul class="activity-list" id="activityLogsList"></ul>
+    <div class="modal-actions modal-actions-stack">
+      <button class="btn btn-ghost" id="loadOlderLogsBtn" type="button">Show Older Logs</button>
     </div>
   </div>
 </div>

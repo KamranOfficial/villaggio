@@ -259,7 +259,6 @@ function renderAll() {
   renderDenominations();
   renderForeignCurrency();
   renderCalculations();
-  renderActivity();
 }
 
 function renderMeta() {
@@ -437,19 +436,6 @@ function addFxRow() {
   if (inputs.length) inputs[inputs.length - 1].focus();
 }
 
-function renderActivity() {
-  const list = document.getElementById("activityList");
-  const entries = state.handover.activity || [];
-  list.innerHTML = entries.length
-    ? entries.map((a) => `
-        <li>
-          <span class="activity-action">${a.action}${a.staff_name ? " — " + a.staff_name : ""}</span>
-          <span>${formatDateTime(a.created_at)}</span>
-        </li>
-      `).join("")
-    : `<li><span>No activity recorded yet.</span></li>`;
-}
-
 // ---------------------------------------------------------------------
 // Calculations
 // ---------------------------------------------------------------------
@@ -532,8 +518,20 @@ async function doSave() {
 
   try {
     const saved = await api("/handover/" + h.id, { method: "PUT", body: JSON.stringify(payload) });
-    state.handover.activity = saved.activity;
-    renderActivity();
+    // Quietly back-fill server-assigned ids onto the in-memory rows (by
+    // position, since save order matches insert order) without
+    // re-rendering — a full re-render here would blow away focus/cursor
+    // position mid-edit. This keeps items/denominations/fx correctly
+    // identified across saves.
+    if (Array.isArray(saved.items)) {
+      saved.items.forEach((it, idx) => { if (h.items && h.items[idx]) h.items[idx].id = it.id; });
+    }
+    if (Array.isArray(saved.denominations)) {
+      saved.denominations.forEach((d, idx) => { if (h.denominations && h.denominations[idx]) h.denominations[idx].id = d.id; });
+    }
+    if (Array.isArray(saved.foreign_currency)) {
+      saved.foreign_currency.forEach((f, idx) => { if (h.foreign_currency && h.foreign_currency[idx]) h.foreign_currency[idx].id = f.id; });
+    }
     setSaveStatus("saved", "AutoSaved ✓");
   } catch (e) {
     setSaveStatus("offline", "Offline — saved locally, will sync");
@@ -591,6 +589,31 @@ function formatDateTime(iso) {
   } catch (e) { return iso; }
 }
 
+// Matches the "10-Aug-2026 09:15" style used in the Activity Logs screen.
+function formatLogDateTime(iso) {
+  try {
+    const d = new Date(iso);
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = d.toLocaleString("en-US", { month: "short" });
+    const year = d.getFullYear();
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    return `${day}-${month}-${year} ${hh}:${mm}`;
+  } catch (e) { return iso; }
+}
+
+// Same style but date-only, for the handover_date (a plain YYYY-MM-DD).
+function formatLogDate(dateStr) {
+  if (!dateStr) return "—";
+  try {
+    const d = new Date(dateStr + "T00:00:00");
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = d.toLocaleString("en-US", { month: "short" });
+    const year = d.getFullYear();
+    return `${day}-${month}-${year}`;
+  } catch (e) { return dateStr; }
+}
+
 function escapeAttr(s) {
   return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }
@@ -615,15 +638,6 @@ document.getElementById("addFxBtn").addEventListener("click", addFxRow);
 
 ["inputCredits", "inputGiveBacks", "inputCashPosting"].forEach((id) => {
   document.getElementById(id).addEventListener("input", () => { renderCalculations(); scheduleSave(); });
-});
-
-// Activity log collapse
-const activityList = document.getElementById("activityList");
-const activityChevron = document.getElementById("activityChevron");
-document.getElementById("activityToggle").addEventListener("click", () => {
-  const collapsed = activityList.style.display === "none";
-  activityList.style.display = collapsed ? "" : "none";
-  activityChevron.classList.toggle("open", collapsed);
 });
 
 // ---------------------------------------------------------------------
@@ -788,6 +802,77 @@ document.getElementById("saveSettingsBtn").addEventListener("click", async () =>
   settingsModal.classList.remove("open");
   renderAll();
 });
+
+// ---------------------------------------------------------------------
+// Activity Logs (Settings → Activity Logs only — never shown on the
+// main handover screen). Read-only. Loads 10 at a time; "Show Older
+// Logs" fetches and appends the next 10 — the full log is never loaded
+// in one go.
+// ---------------------------------------------------------------------
+
+const ACTIVITY_LOGS_PAGE_SIZE = 10;
+const activityLogsModal = document.getElementById("activityLogsModal");
+const activityLogsList = document.getElementById("activityLogsList");
+const loadOlderLogsBtn = document.getElementById("loadOlderLogsBtn");
+let activityLogsOffset = 0;
+let activityLogsExhausted = false;
+
+document.getElementById("openActivityLogsBtn").addEventListener("click", () => {
+  settingsModal.classList.remove("open");
+  activityLogsList.innerHTML = "";
+  activityLogsOffset = 0;
+  activityLogsExhausted = false;
+  loadOlderLogsBtn.disabled = false;
+  loadOlderLogsBtn.textContent = "Show Older Logs";
+  activityLogsModal.classList.add("open");
+  loadActivityLogsPage();
+});
+document.getElementById("closeActivityLogs").addEventListener("click", () => activityLogsModal.classList.remove("open"));
+activityLogsModal.addEventListener("click", (e) => { if (e.target === activityLogsModal) activityLogsModal.classList.remove("open"); });
+
+loadOlderLogsBtn.addEventListener("click", loadActivityLogsPage);
+
+async function loadActivityLogsPage() {
+  if (activityLogsExhausted) return;
+  loadOlderLogsBtn.disabled = true;
+  const wasFirstPage = activityLogsOffset === 0;
+  try {
+    const rows = await api(`/activity-logs?limit=${ACTIVITY_LOGS_PAGE_SIZE}&offset=${activityLogsOffset}`);
+    if (wasFirstPage && rows.length === 0) {
+      activityLogsList.innerHTML = `<li><span>No activity logs yet.</span></li>`;
+    } else {
+      activityLogsList.insertAdjacentHTML("beforeend", rows.map(renderActivityLogEntry).join(""));
+    }
+    activityLogsOffset += rows.length;
+    if (rows.length < ACTIVITY_LOGS_PAGE_SIZE) {
+      activityLogsExhausted = true;
+      loadOlderLogsBtn.textContent = "No older logs";
+    } else {
+      loadOlderLogsBtn.disabled = false;
+    }
+  } catch (e) {
+    if (wasFirstPage) {
+      activityLogsList.innerHTML = `<li><span>Activity logs are unavailable right now.</span></li>`;
+    }
+    loadOlderLogsBtn.disabled = false;
+  }
+}
+
+function renderActivityLogEntry(log) {
+  const changeLine =
+    log.previous_value != null && log.new_value != null
+      ? `<div class="log-change">${escapeAttr(log.previous_value)} → ${escapeAttr(log.new_value)}</div>`
+      : "";
+  return `
+    <li class="log-entry">
+      <div class="log-datetime">${formatLogDateTime(log.created_at)}</div>
+      <div class="log-staff">${escapeAttr(log.staff_name || "—")}</div>
+      <div class="log-handover-date">Handover Date: ${formatLogDate(log.handover_date)}</div>
+      <div class="log-action">${escapeAttr(log.action)}</div>
+      ${changeLine}
+    </li>
+  `;
+}
 
 // ---------------------------------------------------------------------
 // Boot

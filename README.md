@@ -125,6 +125,25 @@ This runs the Worker (and serves the static files) at
 - **Settings** (top bar) — edit the staff list, the AED denominations,
   and the Expected Petty Cash amount (default AED 2,500.00) without
   touching any code.
+- **Activity Logs** (Settings → Activity Logs) — a read-only, global log
+  of every meaningful saved change across all handovers: who made it,
+  when, which handover date it belongs to, what changed, and the
+  previous/new value where relevant. It's never shown on the main
+  handover screen. It loads the latest 10 entries; **Show Older Logs**
+  fetches the next 10 each click, so the whole log is never loaded at
+  once. A log entry is written only when a debounced autosave actually
+  reaches the server with a real change — never on every keystroke.
+
+  If you already deployed this app before this feature was added, run
+  the one-time migration to add the new columns to your existing
+  `activity_logs` table:
+
+  ```bash
+  cd worker
+  wrangler d1 execute villaggio-handover-db --file=./migrations/002_activity_logs_details.sql --remote
+  ```
+
+  Fresh installs don't need this — `schema.sql` already includes it.
 
 ## 6. Offline behaviour
 

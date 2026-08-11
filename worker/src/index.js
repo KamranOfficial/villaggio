@@ -27,6 +27,120 @@ function num(v, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function fmtMoney(v) {
+  const n = Number(v) || 0;
+  return "AED " + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// ---------- Activity log diffing ----------
+//
+// Builds a list of meaningful, human-readable changes between the
+// previously-saved handover and the incoming save. Only actual value
+// changes produce an entry — an autosave that doesn't change a field
+// (e.g. triggered by an unrelated edit) produces no log for that field.
+function diffHandover(before, body) {
+  const logs = [];
+
+  const textField = (key, label) => {
+    const prev = before[key] || "";
+    const next = body[key] !== undefined ? body[key] || "" : prev;
+    if (prev !== next) {
+      logs.push({ action: `${label} changed`, previous_value: prev || "(empty)", new_value: next || "(empty)" });
+    }
+  };
+  textField("from_staff", "From Staff");
+  textField("to_staff", "To Staff");
+
+  const prevNotes = before.general_notes || "";
+  const nextNotes = body.general_notes !== undefined ? body.general_notes || "" : prevNotes;
+  if (prevNotes !== nextNotes) {
+    logs.push({ action: "Handover Notes changed", previous_value: null, new_value: null });
+  }
+
+  const moneyField = (key, label) => {
+    const prev = num(before[key]);
+    const next = num(body[key], prev);
+    if (Math.round(prev * 100) !== Math.round(next * 100)) {
+      logs.push({ action: `${label} changed`, previous_value: fmtMoney(prev), new_value: fmtMoney(next) });
+    }
+  };
+  moneyField("credits", "Credits");
+  moneyField("give_backs", "Give Backs");
+  moneyField("cash_posting", "Cash Posting");
+
+  // Handover items — matched by id so we can tell an edit apart from an
+  // add or a remove. Items without an id (brand new rows) are always
+  // "added".
+  const beforeItems = before.items || [];
+  const nextItems = body.items || [];
+  const beforeById = new Map(beforeItems.filter((it) => it.id).map((it) => [it.id, it]));
+  const matchedIds = new Set();
+
+  nextItems.forEach((it) => {
+    if (it.id && beforeById.has(it.id)) {
+      matchedIds.add(it.id);
+      const prevIt = beforeById.get(it.id);
+      const label = it.room || prevIt.room || "";
+      const roomLabel = label ? `Room ${label}` : "Handover row";
+      if ((prevIt.room || "") !== (it.room || "")) {
+        logs.push({
+          action: "Room number changed",
+          previous_value: prevIt.room || "(empty)",
+          new_value: it.room || "(empty)",
+        });
+      }
+      if ((prevIt.status || "Pending") !== (it.status || "Pending")) {
+        logs.push({
+          action: `${roomLabel} status changed`,
+          previous_value: prevIt.status || "Pending",
+          new_value: it.status || "Pending",
+        });
+      }
+      if ((prevIt.note || "") !== (it.note || "")) {
+        logs.push({ action: `${roomLabel} note changed`, previous_value: null, new_value: null });
+      }
+    } else {
+      const roomLabel = it.room ? `Room ${it.room}` : "Handover row";
+      logs.push({ action: `${roomLabel} added`, previous_value: null, new_value: null });
+    }
+  });
+
+  beforeItems.forEach((it) => {
+    if (it.id && !matchedIds.has(it.id)) {
+      const roomLabel = it.room ? `Room ${it.room}` : "Handover row";
+      logs.push({ action: `${roomLabel} removed`, previous_value: null, new_value: null });
+    }
+  });
+
+  // Cash denomination + foreign currency counts are summarized into a
+  // single "Cash Count changed" line (rather than one log per
+  // denomination row) to keep the log readable.
+  const cashTotal = (list, isFx) =>
+    (list || []).reduce((sum, row) => {
+      if (isFx) return sum + Math.max(0, num(row.rate)) * Math.max(0, num(row.qty));
+      return sum + num(row.denomination) * Math.max(0, Math.round(num(row.qty)));
+    }, 0);
+
+  const prevCash = cashTotal(before.denominations, false) + cashTotal(before.foreign_currency, true);
+  const nextCash = cashTotal(body.denominations, false) + cashTotal(body.foreign_currency, true);
+  if (Math.round(prevCash * 100) !== Math.round(nextCash * 100)) {
+    logs.push({ action: "Cash Count changed", previous_value: fmtMoney(prevCash), new_value: fmtMoney(nextCash) });
+  }
+
+  return logs;
+}
+
+function insertActivityLog(stmts, db, { handoverId, handoverDate, staffName, action, previousValue, newValue, ts }) {
+  stmts.push(
+    db
+      .prepare(
+        `INSERT INTO activity_logs (id, handover_id, handover_date, staff_name, action, previous_value, new_value, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(uid(), handoverId, handoverDate, staffName || "", action, previousValue ?? null, newValue ?? null, ts)
+  );
+}
+
 // ---------- Settings ----------
 
 async function getSettings(db) {
@@ -176,20 +290,27 @@ async function createHandover(db, body) {
     });
   }
 
-  const activityDetail =
-    sourceHandover ? `Created — copied from ${sourceHandover.reference_date}` : "Created — blank";
-  stmts.push(
-    db
-      .prepare("INSERT INTO activity_logs (id, handover_id, action, staff_name, created_at) VALUES (?, ?, ?, ?, ?)")
-      .bind(uid(), id, activityDetail, body.staff_name || body.from_staff || "", ts)
-  );
+  const activityAction = sourceHandover
+    ? `Handover created — copied from ${sourceHandover.reference_date}`
+    : "Handover created";
+  insertActivityLog(stmts, db, {
+    handoverId: id,
+    handoverDate: referenceDate,
+    staffName: body.staff_name || body.from_staff || "",
+    action: activityAction,
+    previousValue: null,
+    newValue: null,
+    ts,
+  });
 
   if (stmts.length) await db.batch(stmts);
   return fetchFullHandover(db, id);
 }
 
 async function saveHandover(db, id, body) {
-  const existing = await db.prepare("SELECT id, status FROM handovers WHERE id = ?").bind(id).first();
+  // Fetch the full previous state (not just status) so we can diff it
+  // against the incoming save and log exactly what changed.
+  const existing = await fetchFullHandover(db, id);
   if (!existing) return null;
 
   const ts = now();
@@ -248,12 +369,30 @@ async function saveHandover(db, id, body) {
     );
   });
 
-  const action = !wasCompleted && nowCompleted ? "Completed" : "Edited";
-  stmts.push(
-    db
-      .prepare("INSERT INTO activity_logs (id, handover_id, action, staff_name, created_at) VALUES (?, ?, ?, ?, ?)")
-      .bind(uid(), id, action, body.from_staff  "", ts)
-  );
+  const staffName = body.to_staff || body.from_staff || existing.to_staff || existing.from_staff || "";
+
+  // One log entry per meaningful field that actually changed — never one
+  // generic "Edited" entry, and never one entry per keystroke (this runs
+  // only when a debounced autosave actually reaches the server).
+  const changeLogs = diffHandover(existing, body);
+
+  if (!wasCompleted && nowCompleted) {
+    changeLogs.push({ action: "Handover marked Completed", previous_value: null, new_value: null });
+  } else if (wasCompleted && !nowCompleted) {
+    changeLogs.push({ action: "Handover reopened as Draft", previous_value: null, new_value: null });
+  }
+
+  changeLogs.forEach((log) => {
+    insertActivityLog(stmts, db, {
+      handoverId: id,
+      handoverDate: existing.reference_date,
+      staffName,
+      action: log.action,
+      previousValue: log.previous_value,
+      newValue: log.new_value,
+      ts,
+    });
+  });
 
   await db.batch(stmts);
   return fetchFullHandover(db, id);
@@ -285,6 +424,22 @@ export default {
       if (path === "/api/settings" && request.method === "PUT") {
         const body = await request.json();
         return json(await putSettings(db, body));
+      }
+
+      // /api/activity-logs?limit=10&offset=0
+      // Global, read-only, paginated activity log across ALL handovers.
+      // Only ever returns a page at a time — never the whole table — so
+      // "Show Older Logs" can page through history without loading it
+      // all at once. This is the only way activity logs are surfaced;
+      // there is no separate per-handover log surfaced in the UI.
+      if (path === "/api/activity-logs" && request.method === "GET") {
+        const limit = Math.min(50, Math.max(1, parseInt(url.searchParams.get("limit") || "10", 10)));
+        const offset = Math.max(0, parseInt(url.searchParams.get("offset") || "0", 10));
+        const rows = await db
+          .prepare("SELECT * FROM activity_logs ORDER BY created_at DESC, rowid DESC LIMIT ? OFFSET ?")
+          .bind(limit, offset)
+          .all();
+        return json(rows.results);
       }
 
       // /api/handover-dates  (calendar markers)

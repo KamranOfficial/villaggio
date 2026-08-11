@@ -372,6 +372,25 @@ textarea#generalNotes:focus { outline: none; border-color: var(--gold); }
 .activity-list li:last-child { border-bottom: none; }
 .activity-list .activity-action { color: var(--ink); font-weight: 600; }
 
+/* ---------- Activity Logs (Settings → Activity Logs) ---------- */
+
+#activityLogsList { max-height: 55vh; overflow-y: auto; }
+.log-entry {
+  display: block;
+  font-size: 13px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-soft);
+}
+.log-entry:last-child { border-bottom: none; }
+.log-datetime { font-weight: 600; color: var(--navy); }
+.log-staff { color: var(--ink); font-weight: 600; margin-top: 2px; }
+.log-handover-date { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+.log-action { margin-top: 4px; color: var(--ink); }
+.log-change { margin-top: 2px; font-variant-numeric: tabular-nums; color: var(--ink); }
+
+#loadOlderLogsBtn:disabled { opacity: 0.6; cursor: default; }
+
 /* ---------- Modals ---------- */
 
 .modal-overlay {
