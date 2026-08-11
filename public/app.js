@@ -158,7 +158,7 @@ async function loadDate(dateStr) {
     state.handover = handover;
     state.loading = false;
     renderAll();
-    if (saveStatusEl.className.indexOf("offline") === -1) setSaveStatus("saved", "AutoAutoSaved ✓");
+    if (saveStatusEl.className.indexOf("offline") === -1) setSaveStatus("saved", "AutoSaved ✓");
     return;
   }
 
